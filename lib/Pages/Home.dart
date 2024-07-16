@@ -1,13 +1,16 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:technoo/Pages/Login.dart';
-
 import 'package:technoo/Pages/attendance.dart'; // Importa el archivo attendance.dart
 import 'package:technoo/Pages/settings.dart'; // Importa el archivo settings.dart
+import 'package:technoo/Pages/Encuesta.dart'; // Importa el archivo Encuesta.dart
 
 class Home extends StatefulWidget {
   @override
@@ -23,6 +26,9 @@ class _HomeState extends State<Home> {
   String _locationMessage = '';
   String _loggedInUser = '';
   int _selectedIndex = 0;
+  int? _userId;
+
+  bool _alertShown = false; // Bandera para controlar si la alerta ya se mostró
 
   void _onMapCreated(GoogleMapController controller) {
     _controller.complete(controller);
@@ -31,7 +37,7 @@ class _HomeState extends State<Home> {
   @override
   void initState() {
     super.initState();
-    _getUserInfo();
+    _getUserInfo(); // Obtener la información del usuario
     _getCurrentLocation();
   }
 
@@ -53,21 +59,18 @@ class _HomeState extends State<Home> {
   Future<void> _getUserInfo() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? username = prefs.getString('username');
+    int? id = prefs.getInt('id');
     if (username != null && username.isNotEmpty) {
       setState(() {
-        _loggedInUser = '';
+        _loggedInUser = username;
+        _userId = id; // Establecer el ID de usuario obtenido
       });
+      _checkLastAttendance(); // Llamar a la verificación de asistencia después de obtener el ID
+    } else {
+      print('No se encontró información de usuario en SharedPreferences');
     }
   }
 
-  /* Future<void> _logout() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.remove('username');
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => MyHomePage()),
-    );
-  }*/
   Future<void> _logout(BuildContext context) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.remove('username');
@@ -87,12 +90,9 @@ class _HomeState extends State<Home> {
     switch (index) {
       case 0:
         return _buildHomePage();
-
       case 1:
-        //return _buildHomePage();
         return SeccionesPage();
       case 2:
-        // return _buildHomePage();
         return SettingsPage();
       default:
         return Container();
@@ -119,7 +119,6 @@ class _HomeState extends State<Home> {
               CircularProgressIndicator(),
             if (_center.latitude != 0 && _center.longitude != 0)
               Container(
-                // Cambia el tamaño del mapa aquí
                 height: 670,
                 child: GoogleMap(
                   onMapCreated: _onMapCreated,
@@ -130,8 +129,8 @@ class _HomeState extends State<Home> {
                   markers: {
                     if (_currentLocationMarker != null) _currentLocationMarker!,
                   },
-                  zoomControlsEnabled: true, // Habilita los controles de zoom
-                  mapType: MapType.hybrid, // Change to other map types
+                  zoomControlsEnabled: true,
+                  mapType: MapType.hybrid,
                   myLocationButtonEnabled: true,
                   myLocationEnabled: true,
                   compassEnabled: true,
@@ -146,38 +145,93 @@ class _HomeState extends State<Home> {
     );
   }
 
-/*
-  Widget _buildHomePage() {
-    return Center(
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'Bienvenido',
-              style: TextStyle(
-                color: Color.fromARGB(255, 57, 16, 133),
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
-              ),
-            ),
-            SizedBox(height: 20), // Espacio entre el texto y el botón
-            ElevatedButton(
-              onPressed: () {
-                // Acción para cerrar sesión
-                _logout(context);
+  Future<void> _checkLastAttendance() async {
+    if (_userId == null) {
+      print('Usuario no identificado');
+      return;
+    }
+
+    final url =
+        'https://www.kolibri-apps.com/assists/webservice/Empleados/get_ultima_asistencia';
+
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        body: {
+          'idEm': _userId.toString(),
+        },
+      );
+
+      final responseBody = json.decode(response.body);
+      print(responseBody); // Imprimir la respuesta para depurar
+
+      if (responseBody['status'] == true) {
+        String lastAttendance = responseBody['last_attendance'];
+        DateTime lastDate =
+            DateFormat('yyyy-MM-dd HH:mm:ss').parse(lastAttendance);
+        DateTime currentDate = DateTime.now();
+
+        print('Fecha actual: $currentDate');
+        print('Última asistencia: $lastDate');
+
+        if (currentDate.difference(lastDate).inDays >= 3 && !_alertShown) {
+          print('Mostrar alerta');
+          _showAlert();
+        } else {
+          print('No es necesario mostrar alerta');
+        }
+      } else {
+        print(responseBody['message']);
+      }
+    } catch (e) {
+      print('Error al verificar la asistencia: $e');
+    }
+  }
+
+  void _showAlert() {
+    print('Mostrando alerta');
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Alerta de Asistencia'),
+          content: Text(
+            'No has registrado asistencia en los últimos 3 días. Por favor, responde el cuestionario.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => EncuestaPage()),
+                );
+                // Guardar en SharedPreferences que la alerta ya se mostró
+                SharedPreferences prefs = await SharedPreferences.getInstance();
+                await prefs.setBool('alertShown', true);
+                setState(() {
+                  _alertShown = true; // Actualizar la bandera local
+                });
               },
-              child: Text('Cerrar sesión'),
-              style: ElevatedButton.styleFrom(
-                primary: Colors.red, // Color de fondo del botón
-                onPrimary: Colors.white, // Color del texto del botón
-              ),
+              child: const Text('Ir'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                // Marcar la alerta como completada en SharedPreferences
+                SharedPreferences prefs = await SharedPreferences.getInstance();
+                await prefs.setBool('alertShown', true);
+                setState(() {
+                  _alertShown = true; // Actualizar la bandera local
+                });
+              },
+              child: const Text('Ya lo realicé'),
             ),
           ],
-        ),
-      ),
+        );
+      },
     );
-  }*/
+  }
 
   @override
   Widget build(BuildContext context) {

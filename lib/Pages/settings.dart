@@ -1,8 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:line_awesome_flutter/line_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
 import 'package:technoo/Pages/Login.dart';
 import 'package:technoo/Pages/Perfil.dart';
+import 'package:technoo/Pages/Pedidos.dart';
+import 'package:technoo/Pages/MisPedidos.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({Key? key}) : super(key: key);
@@ -18,6 +25,8 @@ class _SettingsPageState extends State<SettingsPage> {
   final String defaultImage =
       'assets/profile_default.png.png'; // Ruta de la imagen predeterminada
 
+  Map<String, dynamic> userData = {}; // Para almacenar datos crudos de la API
+
   @override
   void initState() {
     super.initState();
@@ -31,20 +40,48 @@ class _SettingsPageState extends State<SettingsPage> {
     String? apellidoma = prefs.getString('apellidoMaterno');
     String? correo = prefs.getString('email');
     String? foto = prefs.getString('foto');
-    // Asegúrate de tener bien el nombre de la clave
     int? id = prefs.getInt('id');
     print('Correo en SharedPreferences: $nombre');
     print('ID en SharedPreferences: $id');
     print('Correo en SharedPreferences: $correo');
-    print('foto en SharedPreferences: $foto');
+    print('Foto en SharedPreferences: $foto');
 
     if (correo != null && id != null) {
-      setState(() {
-        _loggedInUser = '$nombre $apellidopa $apellidoma';
-        _correoUser = '$correo';
-        _fotouser = '$foto';
-        // Puedes actualizar otros estados aquí según sea necesario
-      });
+      // Obtener datos del usuario desde la API
+      await obtenerDatosUsuario(correo, id);
+    }
+  }
+
+  Future<void> obtenerDatosUsuario(String correo, int id) async {
+    try {
+      var url =
+          "https://www.kolibri-apps.com/assists/webservice/Empleados/getEmpleado";
+
+      var response = await http.post(Uri.parse(url), body: {
+        'idEm': id.toString(),
+      }).timeout(const Duration(seconds: 90));
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        userData = json.decode(response.body);
+        print('Datos del usuario desde la API: $userData');
+
+        setState(() {
+          _loggedInUser =
+              '${userData['data']['nombre']} ${userData['data']['apellidop']} ${userData['data']['apellidom']}';
+          _correoUser = userData['data']['correo'] ?? '';
+          _fotouser = userData['data']['foto'] ??
+              ''; // Asegúrate de que la clave "foto" existe en los datos
+        });
+      } else {
+        print("Error en la solicitud a la API");
+      }
+    } on TimeoutException catch (e) {
+      print("La solicitud tardó mucho en cargar");
+    } on Error catch (e) {
+      print("Error durante la solicitud");
     }
   }
 
@@ -54,28 +91,14 @@ class _SettingsPageState extends State<SettingsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        // leading: IconButton(
-        // onPressed: () {
-        // Navigator.pop(context);
-        //},
-        //icon: const Icon(LineAwesomeIcons.angle_left),
-        // ),
         title: const Text("Ajustes"),
         centerTitle: true,
-        //  actions: [
-        // IconButton(
-        // onPressed: () {},
-        //icon: Icon(isDark ? LineAwesomeIcons.sun : LineAwesomeIcons.moon),
-        // )
-        // ],
       ),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 20),
-            // Mostrar la foto del usuario
-            // Mostrar la foto del usuario
             GestureDetector(
               onTap: () {
                 Navigator.push(
@@ -123,7 +146,6 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
 
             const SizedBox(height: 10),
-            // Mostrar el nombre del usuario
             Text(
               _loggedInUser,
               textAlign: TextAlign.center,
@@ -136,11 +158,21 @@ class _SettingsPageState extends State<SettingsPage> {
               _correoUser,
               textAlign: TextAlign.center,
               style: TextStyle(
-                //fontWeight: FontWeight.bold,
                 fontSize: 18,
               ),
             ),
 
+            const SizedBox(height: 10),
+            // Mostrar datos crudos de la API (para depuración)
+            /*   Text(
+              'Datos del usuario: ${userData.toString()}',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
+              ),
+            ),
+*/
             const SizedBox(height: 20),
             const Divider(),
             const SizedBox(height: 20),
@@ -154,6 +186,26 @@ class _SettingsPageState extends State<SettingsPage> {
                 );
               },
             ),
+            menuProfileWidget(
+              title: const Text("Pedidos"),
+              icon: LineAwesomeIcons.user_check,
+              onPress: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => Pedidos()),
+                );
+              },
+            ),
+           /* menuProfileWidget(
+              title: const Text("Mis pedidos"),
+              icon: LineAwesomeIcons.user_check,
+              onPress: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => MisPedidos()),
+                );
+              },
+            ),*/
             menuProfileWidget(
               title: const Text("Acerca de la aplicación"),
               icon: LineAwesomeIcons.app_net,

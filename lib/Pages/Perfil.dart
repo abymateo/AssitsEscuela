@@ -4,10 +4,11 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:technoo/Pages/Home.dart';
-import 'package:flutter/services.dart';
+import 'package:technoo/Pages/settings.dart';
 
 class Usuario {
   String nombre;
@@ -24,8 +25,8 @@ class Usuario {
     required this.nombre,
     required this.correo,
     required this.pass,
-    required this.apellidom,
     required this.apellidop,
+    required this.apellidom,
     required this.telefono,
     required this.colonia,
     required this.calle,
@@ -50,19 +51,12 @@ class _PerfilState extends State<Perfil> {
   final TextEditingController _coloniaController = TextEditingController();
   final TextEditingController _calleController = TextEditingController();
   final TextEditingController _cpController = TextEditingController();
-  final TextEditingController _idController = TextEditingController();
-  // File? inefrontFile;
-  //File? inebackFile;
-  // File? curpFile;
-  // File? comprobanteFile;
+  bool _isTelefonoValid = true;
+  bool _isCpValid = true;
   File? fotoFile;
-//  String selectedInefrontFileName = 'Seleccionar Archivo';
-//  String selectedInebackFileName = 'Seleccionar Archivo';
-//  String selectedCurpFileName = 'Seleccionar Archivo';
-//  String selectedComprobanteFileName = ' Selecionar Archivo';
-  String selectedFotoFileName = ' Selecionar Archivo';
-
+  String selectedFotoFileName = 'Seleccionar Archivo';
   late Usuario _usuario;
+  bool _hasChanges = false; // Bandera para controlar cambios
 
   @override
   void initState() {
@@ -101,6 +95,34 @@ class _PerfilState extends State<Perfil> {
         _cpController.text = _usuario.cp;
       });
     }
+  }
+
+/*Future<void> _getUserInfo() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    _nombreController.text = prefs.getString('username') ?? '';
+    _apellidopaController.text = prefs.getString('apellidoPaterno') ?? '';
+    _apellidomaController.text = prefs.getString('apellidoMaterno') ?? '';
+    _correoController.text = prefs.getString('email') ?? '';
+    //_pickFotoFile() = prefs.getString('foto') ?? '';
+  }*/
+
+  Future<void> _guardarDatosLocales() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('username', _nombreController.text);
+    await prefs.setString('apellidoPaterno', _apellidopaController.text);
+    await prefs.setString('apellidoMaterno', _apellidomaController.text);
+    await prefs.setString('email', _correoController.text);
+    //await prefs.setString('foto', _controllerFoto.text);
+  }
+
+  @override
+  void dispose() {
+    _nombreController.dispose();
+    _apellidopaController.dispose();
+    _apellidomaController.dispose();
+    _correoController.dispose();
+    // _controllerFoto.dispose();
+    super.dispose();
   }
 
   Future<void> obtenerDatosUsuario(String correo, int id) async {
@@ -148,6 +170,15 @@ class _PerfilState extends State<Perfil> {
     }
   }
 
+  Future<void> updateLocalUserInfo(Map<String, dynamic> userData) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('username', userData['nombre'] ?? '');
+    await prefs.setString('apellidoPaterno', userData['apellidop'] ?? '');
+    await prefs.setString('apellidoMaterno', userData['apellidom'] ?? '');
+    await prefs.setString('email', userData['correo'] ?? '');
+    // Guarda cualquier otra información relevante
+  }
+
   void actualizarPerfil({
     required String nombre,
     required String correo,
@@ -158,10 +189,6 @@ class _PerfilState extends State<Perfil> {
     required String cp,
     required String colonia,
     required String calle,
-    //  required File? inefrontFile,
-    //  required File? inebackFile,
-    //  required File? curpFile,
-    //  required File? comprobanteFile,
     required File? fotoFile,
   }) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -205,12 +232,14 @@ class _PerfilState extends State<Perfil> {
                 'El tamaño del archivo excede el límite permitido');
           } else if (responseBody.containsKey('success') &&
               responseBody['success']) {
+            // Recargar los datos del usuario después de una actualización exitosa
+            await _getUserInfo();
             Navigator.of(context).push(
               MaterialPageRoute(builder: (BuildContext) => Home()),
             );
             _showAlertDialog('Datos actualizados correctamente');
           } else {
-            _showAlertDialog('Error al actualizar los datos');
+            _showAlertDialog('No has realizado ningún cambio');
           }
         } else {
           _showAlertDialog('Error en la solicitud al servidor');
@@ -228,7 +257,7 @@ class _PerfilState extends State<Perfil> {
     }
   }
 
-  void _showAlertDialog(String message) {
+  /*void _showAlertDialog(String message) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -246,43 +275,14 @@ class _PerfilState extends State<Perfil> {
         );
       },
     );
-  }
-
-  // Para validar los documentos
-  Future<bool> validarDocumentosEmpleado() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    int? id = prefs.getInt('idEm');
-
-    try {
-      var url =
-          "https://www.kolibri-apps.com/assists/webservice/Empleados/validarDocumentos";
-
-      var response = await http.post(Uri.parse(url), body: {
-        'idEm': id.toString(),
-      }).timeout(const Duration(seconds: 90));
-
-      if (response.statusCode == 200) {
-        Map<String, dynamic> data = json.decode(response.body);
-        return data['registrados'];
-      } else {
-        print("Error en la solicitud a la API");
-        return false;
-      }
-    } on TimeoutException catch (e) {
-      print("La solicitud tardó mucho en cargar");
-      return false;
-    } on Error catch (e) {
-      print("Error durante la solicitud");
-      return false;
-    }
-  }
+  }*/
 
   void _showUploadResultDialog(String message) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Error'),
+          title: const Text(''),
           content: Text(message),
           actions: <Widget>[
             TextButton(
@@ -297,36 +297,58 @@ class _PerfilState extends State<Perfil> {
     );
   }
 
-//funcion para subir la fotografia del empleado
-  Future<void> _pickFotoFile() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['jpg', 'jpeg', 'png'],
-    );
-
-    if (result != null) {
-      PlatformFile file = result.files.first;
-
-      if (!['jpg', 'jpeg', 'png'].contains(file.extension)) {
-        _showUploadResultDialog(
-            "Solo se permiten archivos jpg, jpeg o png para la foto");
-        return;
-      }
-      File pickedFile = File(file.path!);
-
-      if (pickedFile.existsSync()) {
-        setState(() {
-          fotoFile = pickedFile;
-          selectedFotoFileName = '${file.name}';
-        });
-      } else {
-        _showUploadResultDialog("No se pudo seleccionar la fotografia");
-      }
-    } else {
-      _showUploadResultDialog(
-          "El usuario canceló la selección de archivo fotografia");
+  // Validación de campos vacíos
+  String? validateNotEmpty(String? value, String fieldName) {
+    if (value == null || value.isEmpty) {
+      return 'Por favor ingresa tu $fieldName';
     }
+    return null;
   }
+
+  void _validateAndSubmit() {
+    setState(() {
+      bool hasEmptyFields = false;
+
+      // Validar cada campo requerido
+      if (_nombreController.text.isEmpty ||
+          _apellidopaController.text.isEmpty ||
+          _apellidomaController.text.isEmpty ||
+          _telefonoController.text.isEmpty ||
+          _coloniaController.text.isEmpty ||
+          _calleController.text.isEmpty ||
+          _cpController.text.isEmpty) {
+        hasEmptyFields = true;
+      }
+
+      // Validar longitud de teléfono
+      _isTelefonoValid = _validateTelefonoLength(_telefonoController.text);
+
+      // Validar código postal
+      _isCpValid = _cpController.text.length == 5;
+
+      // Actualizar estado de la bandera _hasChanges
+      _hasChanges = !hasEmptyFields;
+    });
+
+    _guardarDatosLocales().then((_) {
+      Navigator.pop(context, true); // Regresar a la pantalla anterior
+    });
+  }
+
+  bool _validateTelefonoLength(String telefono) {
+    return telefono.length == 10;
+  }
+
+  bool _validateCpLength(String cp) {
+    return cp.length == 5;
+  }
+
+  /*void _validateAndSubmit() {
+    setState(() {
+      _isTelefonoValid = _telefonoController.text.length == 10;
+      _isCpValid = _cpController.text.length == 5;
+    });
+  }*/
 
   Widget buildFilePicker({
     required Function() onFilePicked,
@@ -384,16 +406,82 @@ class _PerfilState extends State<Perfil> {
     );
   }
 
+  //funcion para subir la fotografia del empleado
+  Future<void> _pickFotoFile() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png'],
+    );
+
+    if (result != null) {
+      PlatformFile file = result.files.first;
+
+      if (!['jpg', 'jpeg', 'png'].contains(file.extension)) {
+        _showUploadResultDialog(
+            "Solo se permiten archivos jpg, jpeg o png para la foto");
+        return;
+      }
+      File pickedFile = File(file.path!);
+
+      if (pickedFile.existsSync()) {
+        setState(() {
+          fotoFile = pickedFile;
+          selectedFotoFileName = '${file.name}';
+          _markChanges(); // Aquí se añade la llamada para marcar que hay cambios
+        });
+      } else {
+        _showUploadResultDialog("No se pudo seleccionar la fotografia");
+      }
+    } else {
+      _showUploadResultDialog(
+          "El usuario canceló la selección de archivo fotografia");
+    }
+  }
+
+  void _showAlertDialog(String message) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text(''),
+          content: Text(message),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Aceptar'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                if (_hasChanges) {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                        builder: (BuildContext context) => Home()),
+                  );
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _markChanges() {
+    setState(() {
+      _hasChanges = true;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(
+        title: Text('Editar Perfil'),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: 30),
             Text(
               "Información Personal",
               style: TextStyle(
@@ -406,207 +494,266 @@ class _PerfilState extends State<Perfil> {
               width: 180,
               height: 50,
             ),
-            SizedBox(height: 30),
-            Card(
-              color: Color.fromARGB(255, 253, 253, 253),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    /*TextFormField(
-                      controller: _nombreController,
-                      decoration: InputDecoration(
-                        labelText: 'Nombre',
-                      ),
-                    ),*/
-                    TextField(
-                      controller: _nombreController,
-                      decoration: InputDecoration(
-                        labelText: 'Nombre',
-                        hintText: 'Ingressa nombre',
-                        prefixIcon: Icon(
-                          Icons.person,
-                          color: Colors.grey,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 20),
-                    TextField(
-                      controller: _apellidopaController,
-                      decoration: InputDecoration(
-                        labelText: 'Apellido paterno',
-                        hintText: 'Ingresa información',
-                        prefixIcon: Icon(
-                          Icons.person,
-                          color: Colors.grey,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 20),
-                    TextField(
-                      controller: _apellidomaController,
-                      decoration: InputDecoration(
-                        labelText: 'Apellido materno',
-                        hintText: 'Ingresa información',
-                        prefixIcon: Icon(
-                          Icons.person,
-                          color: Colors.grey,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 20),
-                    TextField(
-                      controller: _telefonoController,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                            RegExp(r'[0-9]')), // Solo permite números
-                        LengthLimitingTextInputFormatter(
-                            10), // Limita la longitud a 10 caracteres
-                      ],
-                      decoration: InputDecoration(
-                        labelText: 'Telefono',
-                        hintText: 'Ingresa información',
-                        prefixIcon: Icon(
-                          Icons.phone_android,
-                          color: Colors.grey,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 20),
-                    TextField(
-                      controller: _cpController,
-                      decoration: InputDecoration(
-                        labelText: 'Codigo Postal',
-                        hintText: 'Ingresa información',
-                        prefixIcon: Icon(
-                          Icons.house,
-                          color: Colors.grey,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 20),
-                    TextField(
-                      controller: _coloniaController,
-                      decoration: InputDecoration(
-                        labelText: 'Colonia',
-                        hintText: 'Ingresa información',
-                        prefixIcon: Icon(
-                          Icons.house,
-                          color: Colors.grey,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 20),
-                    TextField(
-                      controller: _calleController,
-                      decoration: InputDecoration(
-                        labelText: 'Calle',
-                        hintText: 'Ingresa información',
-                        prefixIcon: Icon(
-                          Icons.house,
-                          color: Colors.grey,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 20),
-                    TextField(
-                      controller: _correoController,
-                      enabled: false,
-                      decoration: InputDecoration(
-                        labelText: 'Correo Electronico',
-                        hintText: 'Ingresa información',
-                        prefixIcon: Icon(
-                          Icons.email,
-                          color: Colors.grey,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 20),
-
-                    // Verifica si los documentos del usuario están registrados
-                    FutureBuilder<bool>(
-                      future: validarDocumentosEmpleado(),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return CircularProgressIndicator();
-                        } else {
-                          if (snapshot.hasError || !snapshot.data!) {
-                            // Si hay un error o los documentos no están registrados, muestra los campos de archivo
-                            return Column(
-                              children: [
-                                buildFilePicker(
-                                  labelText: 'Fotografia',
-                                  selectedFile: fotoFile,
-                                  onFilePicked: () {
-                                    _pickFotoFile();
-                                  },
-                                ),
-                              ],
-                            );
-                          } else {
-                            // Si los documentos están registrados, no se muestran campos adicionales
-                            return SizedBox.shrink();
-                          }
-                        }
-                      },
-                    ),
-                  ],
+            // Nombre
+            SizedBox(height: 5),
+            Container(
+              padding: const EdgeInsets.all(16.0),
+              child: TextFormField(
+                controller: _nombreController,
+                decoration: InputDecoration(
+                  fillColor: Colors.grey[200],
+                  filled: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                    borderSide: BorderSide.none,
+                  ),
+                  hintText: 'Nombre',
+                  contentPadding:
+                      EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
                 ),
+                validator: (value) => validateNotEmpty(value, 'Nombre'),
+                onChanged: (value) {
+                  setState(() {
+                    _usuario.nombre = value;
+                    _markChanges();
+                  });
+                },
               ),
             ),
-            SizedBox(height: 16),
+            SizedBox(height: 5),
+            Container(
+              padding: const EdgeInsets.all(16.0),
+              child: TextFormField(
+                controller: _apellidopaController,
+                decoration: InputDecoration(
+                  fillColor: Colors.grey[200],
+                  filled: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                    borderSide: BorderSide.none,
+                  ),
+                  hintText: 'Apellido Paterno',
+                  contentPadding:
+                      EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
+                ),
+                validator: (value) =>
+                    validateNotEmpty(value, 'apellido paterno'),
+                onChanged: (value) {
+                  setState(() {
+                    _usuario.apellidop = value;
+                    _markChanges();
+                  });
+                },
+              ),
+            ),
+            SizedBox(height: 5),
+            Container(
+              padding: const EdgeInsets.all(16.0),
+              child: TextFormField(
+                controller: _apellidomaController,
+                decoration: InputDecoration(
+                  fillColor: Colors.grey[200],
+                  filled: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                    borderSide: BorderSide.none,
+                  ),
+                  hintText: 'Apellido Materno',
+                  contentPadding:
+                      EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
+                ),
+                validator: (value) =>
+                    validateNotEmpty(value, 'apellido materno'),
+                onChanged: (value) {
+                  setState(() {
+                    _usuario.apellidom = value;
+                    _markChanges();
+                  });
+                },
+              ),
+            ),
+            // Apellido Materno
+            SizedBox(height: 5),
+            Container(
+              padding: const EdgeInsets.all(16.0),
+              child: TextFormField(
+                controller: _telefonoController,
+                decoration: InputDecoration(
+                  fillColor: Colors.grey[200],
+                  filled: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                    borderSide: BorderSide.none,
+                  ),
+                  hintText: 'Telefono',
+                  errorText:
+                      _isTelefonoValid ? null : 'Ingrese un teléfono válido',
+                  contentPadding:
+                      EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
+                ),
+                validator: (value) => validateNotEmpty(value, 'telefono'),
+                keyboardType: TextInputType.phone,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(
+                      10), // Limitar a 10 caracteres
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _usuario.telefono = value;
+                    _markChanges();
+                    _isTelefonoValid = _validateTelefonoLength(value);
+                  });
+                },
+              ),
+            ),
+            // Apellido Materno
+            SizedBox(height: 5),
+            Container(
+              padding: const EdgeInsets.all(16.0),
+              child: TextFormField(
+                controller: _coloniaController,
+                decoration: InputDecoration(
+                  fillColor: Colors.grey[200],
+                  filled: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                    borderSide: BorderSide.none,
+                  ),
+                  hintText: 'Colonia',
+                  contentPadding:
+                      EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
+                ),
+                validator: (value) => validateNotEmpty(value, 'colonia'),
+                onChanged: (value) {
+                  setState(() {
+                    _usuario.colonia = value;
+                    _markChanges();
+                  });
+                },
+              ),
+            ),
+            // Apellido Materno
+            SizedBox(height: 5),
+            Container(
+              padding: const EdgeInsets.all(16.0),
+              child: TextFormField(
+                controller: _calleController,
+                decoration: InputDecoration(
+                  fillColor: Colors.grey[200],
+                  filled: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                    borderSide: BorderSide.none,
+                  ),
+                  hintText: 'Calle',
+                  contentPadding:
+                      EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
+                ),
+                validator: (value) => validateNotEmpty(value, 'Calle'),
+                onChanged: (value) {
+                  setState(() {
+                    _usuario.calle = value;
+                    _markChanges();
+                  });
+                },
+              ),
+            ),
+            // Apellido Materno
+            SizedBox(height: 5),
+            Container(
+              padding: const EdgeInsets.all(16.0),
+              child: TextFormField(
+                controller: _cpController,
+                decoration: InputDecoration(
+                  fillColor: Colors.grey[200],
+                  filled: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                    borderSide: BorderSide.none,
+                  ),
+                  hintText: 'Codigo Postal',
+                  errorText:
+                      _isCpValid ? null : 'Ingresa un codigo postal correcto',
+                  contentPadding:
+                      EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
+                ),
+                validator: (value) => validateNotEmpty(value, 'codigo postal'),
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(
+                      5), // Limitar a 10 caracteres
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _usuario.cp = value;
+                    _markChanges();
+                    _isCpValid = _validateCpLength(value);
+                  });
+                },
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(16.0),
+              child: TextFormField(
+                enabled: false,
+                controller: _correoController,
+                decoration: InputDecoration(
+                  fillColor: Colors.grey[200],
+                  filled: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                    borderSide: BorderSide.none,
+                  ),
+                  hintText: 'Codigo Postal',
+                  contentPadding:
+                      EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
+                ),
+                validator: (value) => validateNotEmpty(value, 'codigo postal'),
+                onChanged: (value) {
+                  setState(() {
+                    _usuario.correo = value;
+                    _markChanges();
+                  });
+                },
+              ),
+            ),
+            SizedBox(height: 5),
+            buildFilePicker(
+              labelText: 'Fotografia',
+              selectedFile: fotoFile,
+              onFilePicked: () {
+                _pickFotoFile();
+              },
+            ),
+
+            // Botón de guardar habilitado solo si hay cambios
             Center(
               child: ElevatedButton(
-                onPressed: () {
-                  _usuario.nombre = _nombreController.text;
-                  _usuario.correo = _correoController.text;
-                  _usuario.pass = _passController.text;
-                  _usuario.telefono = _telefonoController.text;
-                  _usuario.colonia = _coloniaController.text;
-                  _usuario.calle = _calleController.text;
-                  _usuario.cp = _cpController.text;
-                  _usuario.apellidop = _apellidopaController.text;
-                  _usuario.apellidom = _apellidomaController.text;
-
-                  actualizarPerfil(
-                    nombre: _usuario.nombre,
-                    correo: _usuario.correo,
-                    contra: _usuario.pass,
-                    apellidop: _usuario.apellidop,
-                    apellidoma: _usuario.apellidom,
-                    telefono: _usuario.telefono,
-                    colonia: _usuario.colonia,
-                    calle: _usuario.calle,
-                    cp: _usuario.cp,
-                    fotoFile: fotoFile,
-                  );
-                },
+                onPressed: _hasChanges &&
+                        _isTelefonoValid &&
+                        !_nombreController.text.isEmpty &&
+                        !_apellidopaController.text.isEmpty &&
+                        !_apellidomaController.text.isEmpty &&
+                        !_telefonoController.text.isEmpty &&
+                        !_coloniaController.text.isEmpty &&
+                        !_calleController.text.isEmpty &&
+                        !_cpController.text.isEmpty
+                    ? () {
+                        actualizarPerfil(
+                          nombre: _nombreController.text,
+                          correo: _correoController.text,
+                          contra: _passController.text,
+                          apellidop: _apellidopaController.text,
+                          apellidoma: _apellidomaController.text,
+                          telefono: _telefonoController.text,
+                          cp: _cpController.text,
+                          colonia: _coloniaController.text,
+                          calle: _calleController.text,
+                          fotoFile: fotoFile,
+                        );
+                      }
+                    : null, // Deshabilita el botón si no hay cambios o hay campos vacíos
                 style: ElevatedButton.styleFrom(
                   primary: Colors.blue,
                   padding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
@@ -629,10 +776,4 @@ class _PerfilState extends State<Perfil> {
       ),
     );
   }
-}
-
-void main() {
-  runApp(MaterialApp(
-    home: Perfil(),
-  ));
 }

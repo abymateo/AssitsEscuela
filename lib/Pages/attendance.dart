@@ -35,7 +35,7 @@ class SeccionesPage extends StatelessWidget {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Alerta'),
+          title: Text(''),
           content: Text(message),
           actions: <Widget>[
             TextButton(

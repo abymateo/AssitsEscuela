@@ -8,7 +8,6 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
-//import 'package:geolocator/geolocator.dart';
 
 class RegistroPage extends StatefulWidget {
   const RegistroPage({Key? key}) : super(key: key);
@@ -18,6 +17,8 @@ class RegistroPage extends StatefulWidget {
 }
 
 class _RegistroPageState extends State<RegistroPage> {
+  final _formKey = GlobalKey<FormState>();
+
   TextEditingController nombre = TextEditingController();
   TextEditingController apellidopa = TextEditingController();
   TextEditingController apellidoma = TextEditingController();
@@ -28,56 +29,22 @@ class _RegistroPageState extends State<RegistroPage> {
   TextEditingController colonia = TextEditingController();
   TextEditingController calle = TextEditingController();
   File? fotoFile;
+  bool mostrarContrasena = false;
+  bool _isTelefonoValid = true;
+  bool _isCpValid = true;
 
   String selectedFotoFileName = ' Selecionar Archivo';
-  /* File? inefrontFile;
-  File? inebackFile;
-  File? curpFile;
-  File? comprobanteFile;
-  
-  String selectedInefrontFileName = 'Seleccionar Archivo';
-  String selectedInebackFileName = 'Seleccionar Archivo';
-  String selectedCurpFileName = 'Seleccionar Archivo';
-  String selectedComprobanteFileName = ' Selecionar Archivo';
-  
-  final Permission permissionCamera = Permission.camera;*/
   final Permission permissionStorage = Permission.storage;
 
-//para permisos de archivos
-
   void storagePermissionStatus() async {
-    // Solicitar permiso de almacenamiento
     final storageStatus = await permissionStorage.request();
-
     if (storageStatus.isGranted) {
-      // Permiso de almacenamiento concedido
       print('Permiso de almacenamiento concedido.');
-      // Puedes acceder a archivos aquí si es necesario
     } else {
-      // Permiso de almacenamiento denegado
       print('Permiso de almacenamiento denegado.');
     }
   }
 
-/*
-// Función para abrir la cámara y capturar una imagen
-  Future<void> _pickFromCamera() async {
-    final imagePicker = ImagePicker();
-    final imageFile = await imagePicker.pickImage(source: ImageSource.camera);
-
-    if (imageFile != null) {
-      // Aquí puedes manejar la imagen capturada
-      // Por ejemplo, puedes mostrarla en un widget Image
-      setState(() {
-        // asignar la imagen capturada a una variable o hacer algo con ella
-      });
-    } else {
-      // El usuario canceló la captura de la imagen
-      print('El usuario canceló la captura de la imagen desde la cámara.');
-    }
-  }*/
-
-//funcion para subir la fotografia del empleado
   Future<void> _pickFotoFile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -98,7 +65,6 @@ class _RegistroPageState extends State<RegistroPage> {
         setState(() {
           fotoFile = pickedFile;
           selectedFotoFileName = '${file.name}';
-          // _pickFromCamera();
         });
       } else {
         _showUploadResultDialog("No se pudo seleccionar la fotografia");
@@ -165,18 +131,6 @@ class _RegistroPageState extends State<RegistroPage> {
       var url =
           "https://www.kolibri-apps.com/assists/webservice/Empleados/registroEmpleado";
 
-      print('Datos del formulario:');
-      print('Nombre: ${nombre}');
-      print('Apellido Paterno: ${apellidop}');
-      print('Apellido Materno: ${apellidoma}');
-      print('Apellido Materno: ${telefono}');
-      print('Apellido Materno: ${cp}');
-      print('Apellido Materno: ${colonia}');
-      print('Apellido Materno: ${calle}');
-      print('Correo: ${correo}');
-      print('Contraseña: ${contra}');
-      ;
-
       var request = http.MultipartRequest('POST', Uri.parse(url));
 
       request.fields.addAll({
@@ -211,14 +165,11 @@ class _RegistroPageState extends State<RegistroPage> {
         );
         _showDialog('', 'Usuario registrado exitosamente');
       } else {
-        print("Hubo un error");
         _showErrorDialog(responseBody['message']);
       }
     } on TimeoutException catch (e) {
-      print("Tardo mucho en cargar");
       _showErrorDialog('Tiempo de espera agotado');
     } on Error catch (e) {
-      print("Error: $e");
       _showErrorDialog('Ocurrió un error');
     }
   }
@@ -263,9 +214,8 @@ class _RegistroPageState extends State<RegistroPage> {
           ElevatedButton(
             onPressed: onFilePicked,
             style: ElevatedButton.styleFrom(
-              primary: Color.fromARGB(255, 169, 170, 170).withOpacity(0.5),
-              // padding: const EdgeInsets.all(16.0),
-
+              backgroundColor:
+                  Color.fromARGB(255, 169, 170, 170).withOpacity(0.5),
               padding: EdgeInsets.symmetric(horizontal: 60, vertical: 9),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(15),
@@ -297,12 +247,11 @@ class _RegistroPageState extends State<RegistroPage> {
     );
   }
 
-// Validación de formato de correo electrónico
+  // Validación de formato de correo electrónico
   String? validateEmail(String? value) {
     if (value == null || value.isEmpty) {
       return 'Por favor ingresa tu correo electrónico';
     }
-    // Expresión regular para validar formato de correo electrónico
     String emailPattern = r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$';
     RegExp regex = RegExp(emailPattern);
     if (!regex.hasMatch(value)) {
@@ -311,253 +260,423 @@ class _RegistroPageState extends State<RegistroPage> {
     return null;
   }
 
+  // Validación de contraseña
+  String? validatePassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Por favor ingresa tu contraseña';
+    }
+    if (value.length < 8) {
+      return 'La contraseña debe tener al menos 8 caracteres';
+    }
+    return null;
+  }
+
+  // Validación de campos vacíos
+  String? validateNotEmpty(String? value, String fieldName) {
+    if (value == null || value.isEmpty) {
+      return 'Por favor ingresa tu $fieldName';
+    }
+    return null;
+  }
+
+  void _validateAndSubmit() {
+    setState(() {
+      bool hasEmptyFields = false;
+
+      // Validar cada campo requerido
+      if (nombre.text.isEmpty ||
+          apellidopa.text.isEmpty ||
+          apellidoma.text.isEmpty ||
+          telefono.text.isEmpty ||
+          colonia.text.isEmpty ||
+          calle.text.isEmpty ||
+          cp.text.isEmpty) {
+        hasEmptyFields = true;
+      }
+
+      // Validar longitud de teléfono
+      _isTelefonoValid = _validateTelefonoLength(telefono.text);
+
+      // Validar código postal
+      _isCpValid = cp.text.length == 5;
+    });
+  }
+
+  bool _validateTelefonoLength(String telefono) {
+    return telefono.length == 10;
+  }
+
+  bool _validateCpLength(String cp) {
+    return cp.length == 5;
+  }
+
+  // Criterios de validación para la contraseña
+  bool hasMinLength(String value) => value.length >= 8;
+  bool hasSpecialChar(String value) =>
+      value.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
+  bool hasUpperCase(String value) => value.contains(RegExp(r'[A-Z]'));
+  bool hasLowerCase(String value) => value.contains(RegExp(r'[a-z]'));
+  bool hasNumber(String value) => value.contains(RegExp(r'\d'));
+  bool noSequentialNumbers(String value) {
+    for (int i = 0; i < value.length - 2; i++) {
+      if (int.tryParse(value[i]) != null &&
+          int.tryParse(value[i + 1]) != null &&
+          int.tryParse(value[i + 2]) != null) {
+        int first = int.parse(value[i]);
+        int second = int.parse(value[i + 1]);
+        int third = int.parse(value[i + 2]);
+
+        if (second == first + 1 && third == second + 1) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+//para que solo habilite el boton cuando se cumpla los criterios de la password
+  bool passwordCriteriaMet() {
+    String password = contra.text;
+
+    return hasMinLength(password) &&
+        hasSpecialChar(password) &&
+        noSequentialNumbers(password) &&
+        hasUpperCase(password) &&
+        hasLowerCase(password) &&
+        hasNumber(password);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(
+          // title: const Text('Registrar'),
+          ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Text(
-              "Registro",
-              style: TextStyle(
-                fontSize: 30,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            // Image.asset(
-            //  'assets/linea.png',
-            // width: 120,
-            //   height: 50,
-            //   ),
-            SizedBox(height: 30),
-            Container(
-              padding: const EdgeInsets.all(16.0),
-              child: TextField(
-                controller: nombre,
-                decoration: InputDecoration(
-                  fillColor: Colors.grey[200],
-                  filled: true,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10.0),
-                    borderSide: BorderSide.none,
-                  ),
-                  hintText: 'Nombre',
-                  contentPadding:
-                      EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
-                ),
-              ),
-            ),
-            SizedBox(height: 5),
-            Container(
-              padding: const EdgeInsets.all(16.0),
-              child: TextField(
-                controller: apellidopa,
-                decoration: InputDecoration(
-                  fillColor: Colors.grey[200],
-                  filled: true,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10.0),
-                    borderSide: BorderSide.none,
-                  ),
-                  hintText: 'Apellido Paterno',
-                  contentPadding:
-                      EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
-                ),
-              ),
-            ),
-            SizedBox(height: 5),
-            Container(
-              padding: const EdgeInsets.all(16.0),
-              child: TextField(
-                controller: apellidoma,
-                decoration: InputDecoration(
-                  fillColor: Colors.grey[200],
-                  filled: true,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10.0),
-                    borderSide: BorderSide.none,
-                  ),
-                  hintText: 'Apellido Materno',
-                  contentPadding:
-                      EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
-                ),
-              ),
-            ),
-            SizedBox(height: 5),
-            Container(
-              padding: const EdgeInsets.all(16.0),
-              child: TextField(
-                controller: telefono,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(
-                      RegExp(r'[0-9]')), // Solo permite números
-                  LengthLimitingTextInputFormatter(
-                      10), // Limita la longitud a 10 caracteres
-                ],
-                decoration: InputDecoration(
-                  fillColor: Colors.grey[200],
-                  filled: true,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10.0),
-                    borderSide: BorderSide.none,
-                  ),
-                  hintText: 'Teléfono',
-                  contentPadding:
-                      EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
-                ),
-              ),
-            ),
-            SizedBox(height: 5),
-            Container(
-              padding: const EdgeInsets.all(16.0),
-              child: TextField(
-                controller: cp,
-                decoration: InputDecoration(
-                  fillColor: Colors.grey[200],
-                  filled: true,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10.0),
-                    borderSide: BorderSide.none,
-                  ),
-                  hintText: 'Codigo Postal',
-                  contentPadding:
-                      EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
-                ),
-              ),
-            ),
-            SizedBox(height: 5),
-            Container(
-              padding: const EdgeInsets.all(16.0),
-              child: TextField(
-                controller: colonia,
-                decoration: InputDecoration(
-                  fillColor: Colors.grey[200],
-                  filled: true,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10.0),
-                    borderSide: BorderSide.none,
-                  ),
-                  hintText: 'Colonia',
-                  contentPadding:
-                      EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
-                ),
-              ),
-            ),
-            SizedBox(height: 5),
-            Container(
-              padding: const EdgeInsets.all(16.0),
-              child: TextField(
-                controller: calle,
-                decoration: InputDecoration(
-                  fillColor: Colors.grey[200],
-                  filled: true,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10.0),
-                    borderSide: BorderSide.none,
-                  ),
-                  hintText: 'Calle',
-                  contentPadding:
-                      EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
-                ),
-              ),
-            ),
-            SizedBox(height: 5),
-            Container(
-              padding: const EdgeInsets.all(16.0),
-              child: TextFormField(
-                controller: correo,
-                decoration: InputDecoration(
-                  fillColor: Colors.grey[200],
-                  filled: true,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10.0),
-                    borderSide: BorderSide.none,
-                  ),
-                  hintText: 'Correo Electrónico',
-                  contentPadding:
-                      EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
-                ),
-                validator:
-                    validateEmail, // Utiliza tu función de validación aquí
-              ),
-            ),
-            SizedBox(height: 5),
-            Container(
-              padding: const EdgeInsets.all(16.0),
-              child: TextField(
-                controller: contra,
-                decoration: InputDecoration(
-                  fillColor: Colors.grey[200],
-                  filled: true,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10.0),
-                    borderSide: BorderSide.none,
-                  ),
-                  hintText: 'Contraseña',
-                  contentPadding:
-                      EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
-                ),
-              ),
-            ),
-            buildFilePicker(
-              labelText: 'Fotografia',
-              selectedFile: fotoFile,
-              onFilePicked: () {
-                _pickFotoFile();
-              },
-            ),
-            SizedBox(height: 0),
-            ElevatedButton(
-              onPressed: () {
-                print(nombre.text);
-                print(contra.text);
-
-                if (nombre.text.isNotEmpty &&
-                    apellidopa.text.isNotEmpty &&
-                    apellidoma.text.isNotEmpty &&
-                    correo.text.isNotEmpty &&
-                    contra.text.isNotEmpty &&
-                    telefono.text.isNotEmpty &&
-                    cp.text.isNotEmpty &&
-                    colonia.text.isNotEmpty &&
-                    calle.text.isNotEmpty != null) {
-                  ingresar(
-                    nombre: nombre.text,
-                    correo: correo.text,
-                    contra: contra.text,
-                    apellidop: apellidopa.text,
-                    apellidoma: apellidoma.text,
-                    telefono: telefono.text,
-                    cp: cp.text,
-                    colonia: colonia.text,
-                    calle: calle.text,
-                    fotoFile: fotoFile,
-                  );
-                } else {
-                  _showDialog('Error', 'Llena todos los campos');
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                primary: Colors.blue,
-                padding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              ),
-              child: Text(
-                'Registrarse',
+        child: Form(
+          key: _formKey,
+          child: Column(
+            //crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                "Registro",
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 30,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
                 ),
               ),
-            )
-          ],
+              Container(
+                padding: const EdgeInsets.all(16.0),
+                child: TextFormField(
+                  controller: nombre,
+                  decoration: InputDecoration(
+                    fillColor: Colors.grey[200],
+                    filled: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                      borderSide: BorderSide.none,
+                    ),
+                    hintText: 'Nombre',
+                    contentPadding:
+                        EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
+                  ),
+                  validator: (value) => validateNotEmpty(value, 'nombre'),
+                ),
+              ),
+              SizedBox(height: 5),
+              Container(
+                padding: const EdgeInsets.all(16.0),
+                child: TextFormField(
+                  controller: apellidopa,
+                  decoration: InputDecoration(
+                    fillColor: Colors.grey[200],
+                    filled: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                      borderSide: BorderSide.none,
+                    ),
+                    hintText: 'Apellido Paterno',
+                    contentPadding:
+                        EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
+                  ),
+                  validator: (value) =>
+                      validateNotEmpty(value, 'apellido paterno'),
+                ),
+              ),
+              SizedBox(height: 5),
+              Container(
+                padding: const EdgeInsets.all(16.0),
+                child: TextFormField(
+                  controller: apellidoma,
+                  decoration: InputDecoration(
+                    fillColor: Colors.grey[200],
+                    filled: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                      borderSide: BorderSide.none,
+                    ),
+                    hintText: 'Apellido Materno',
+                    contentPadding:
+                        EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
+                  ),
+                  validator: (value) =>
+                      validateNotEmpty(value, 'apellido materno'),
+                ),
+              ),
+              SizedBox(height: 5),
+              Container(
+                padding: const EdgeInsets.all(16.0),
+                child: TextFormField(
+                  controller: telefono,
+                  decoration: InputDecoration(
+                    fillColor: Colors.grey[200],
+                    filled: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                      borderSide: BorderSide.none,
+                    ),
+                    hintText: 'Telefono',
+                    errorText:
+                        _isTelefonoValid ? null : 'Ingrese un teléfono válido',
+                    contentPadding:
+                        EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
+                  ),
+                  validator: (value) => validateNotEmpty(value, 'telefono'),
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(
+                        10), // Limitar a 10 caracteres
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _isTelefonoValid = _validateTelefonoLength(value);
+                    });
+                  },
+                ),
+              ),
+              SizedBox(height: 5),
+              Container(
+                padding: const EdgeInsets.all(16.0),
+                child: TextFormField(
+                  controller: cp,
+                  decoration: InputDecoration(
+                    fillColor: Colors.grey[200],
+                    filled: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                      borderSide: BorderSide.none,
+                    ),
+                    hintText: 'Codigo Postal',
+                    errorText:
+                        _isCpValid ? null : 'Ingresa un codigo postal correcto',
+                    contentPadding:
+                        EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
+                  ),
+                  validator: (value) =>
+                      validateNotEmpty(value, 'codigo postal'),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(
+                        5), // Limitar a 10 caracteres
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _isCpValid = _validateCpLength(value);
+                    });
+                  },
+                ),
+              ),
+              SizedBox(height: 5),
+              Container(
+                padding: const EdgeInsets.all(16.0),
+                child: TextFormField(
+                  controller: colonia,
+                  decoration: InputDecoration(
+                    fillColor: Colors.grey[200],
+                    filled: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                      borderSide: BorderSide.none,
+                    ),
+                    hintText: 'Colonia',
+                    contentPadding:
+                        EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
+                  ),
+                  validator: (value) => validateNotEmpty(value, 'colonia'),
+                ),
+              ),
+              SizedBox(height: 5),
+              Container(
+                padding: const EdgeInsets.all(16.0),
+                child: TextFormField(
+                  controller: calle,
+                  decoration: InputDecoration(
+                    fillColor: Colors.grey[200],
+                    filled: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                      borderSide: BorderSide.none,
+                    ),
+                    hintText: 'Calle',
+                    contentPadding:
+                        EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
+                  ),
+                  validator: (value) => validateNotEmpty(value, 'calle'),
+                ),
+              ),
+              SizedBox(height: 5),
+              Container(
+                padding: const EdgeInsets.all(16.0),
+                child: TextFormField(
+                  controller: correo,
+                  decoration: InputDecoration(
+                    fillColor: Colors.grey[200],
+                    filled: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                      borderSide: BorderSide.none,
+                    ),
+                    hintText: 'Correo',
+                    contentPadding:
+                        EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
+                  ),
+                  validator: validateEmail,
+                ),
+              ),
+              SizedBox(height: 5),
+              Container(
+                padding: const EdgeInsets.all(16.0),
+                child: TextFormField(
+                  controller: contra,
+                  decoration: InputDecoration(
+                    fillColor: Colors.grey[200],
+                    filled: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                      borderSide: BorderSide.none,
+                    ),
+                    hintText: 'Contraseña',
+                    contentPadding:
+                        EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
+                    suffixIcon: IconButton(
+                      onPressed: () {
+                        setState(() {
+                          mostrarContrasena = !mostrarContrasena;
+                        });
+                      },
+                      icon: Icon(
+                        mostrarContrasena
+                            ? Icons.visibility
+                            : Icons.visibility_off,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ),
+                  obscureText: !mostrarContrasena,
+                  onChanged: (value) {
+                    setState(() {});
+                  },
+                  validator: validatePassword,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    buildPasswordCriteria(
+                      'Mínimo 8 caracteres',
+                      hasMinLength(contra.text),
+                    ),
+                    buildPasswordCriteria(
+                      'Mínimo un carácter especial',
+                      hasSpecialChar(contra.text),
+                    ),
+                    buildPasswordCriteria(
+                      'No seguir formato 123...',
+                      noSequentialNumbers(contra.text),
+                    ),
+                    buildPasswordCriteria(
+                      'Al menos una letra mayúscula',
+                      hasUpperCase(contra.text),
+                    ),
+                    buildPasswordCriteria(
+                      'Al menos una letra minúscula',
+                      hasLowerCase(contra.text),
+                    ),
+                    buildPasswordCriteria(
+                      'Al menos un número',
+                      hasNumber(contra.text),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 5),
+              buildFilePicker(
+                onFilePicked: _pickFotoFile,
+                labelText: 'Foto',
+                selectedFile: fotoFile,
+              ),
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: passwordCriteriaMet()
+                    ? () {
+                        if (_formKey.currentState!.validate()) {
+                          ingresar(
+                            nombre: nombre.text,
+                            apellidop: apellidopa.text,
+                            apellidoma: apellidoma.text,
+                            telefono: telefono.text,
+                            cp: cp.text,
+                            colonia: colonia.text,
+                            calle: calle.text,
+                            correo: correo.text,
+                            contra: contra.text,
+                            fotoFile: fotoFile,
+                          );
+                        }
+                      }
+                    : null, // Si los criterios no se cumplen, onPressed es null (botón deshabilitado)
+                style: ElevatedButton.styleFrom(
+                  primary: Colors.blue,
+                  padding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                ),
+                child: Text(
+                  'Registrarse',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget buildPasswordCriteria(String text, bool met) {
+    return Row(
+      children: [
+        Icon(
+          met ? Icons.check : Icons.close,
+          color: met ? Colors.green : Colors.red,
+        ),
+        SizedBox(width: 8),
+        Text(
+          text,
+          style: TextStyle(
+            color: met ? Colors.green : Colors.red,
+          ),
+        ),
+      ],
     );
   }
 }
