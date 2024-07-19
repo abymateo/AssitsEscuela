@@ -196,7 +196,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 );
               },
             ),
-           /* menuProfileWidget(
+            /* menuProfileWidget(
               title: const Text("Mis pedidos"),
               icon: LineAwesomeIcons.user_check,
               onPress: () {

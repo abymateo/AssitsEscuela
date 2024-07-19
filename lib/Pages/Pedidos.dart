@@ -65,7 +65,7 @@ class _PedidosState extends State<Pedidos> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Error'),
+          title: Text(''),
           content: Text(message),
           actions: <Widget>[
             TextButton(
@@ -107,7 +107,7 @@ class _PedidosState extends State<Pedidos> {
     }
   }
 
-//para verificar si hay almacen:
+  // Verificar si hay almacen
   Future<bool> verificarCantidadDisponibles() async {
     for (var producto in _selectedProducts) {
       var idProducto = producto['id_producto'];
@@ -117,10 +117,8 @@ class _PedidosState extends State<Pedidos> {
       // Busca el nombre del producto correspondiente en la lista de productos
       var productoEncontrado = _productos.firstWhere(
           (p) => p['id_producto'] == idProducto,
-          orElse: () => null);
-      var nombreProducto = productoEncontrado != null
-          ? productoEncontrado['nombre']
-          : 'Producto desconocido';
+          orElse: () => {'nombre': 'Producto desconocido'});
+      var nombreProducto = productoEncontrado['nombre'];
 
       var url =
           "https://www.kolibri-apps.com/assists/webservice/Empleados/verificarCantidad";
@@ -196,21 +194,37 @@ class _PedidosState extends State<Pedidos> {
   }
 
   void _addProduct() {
-    if (_selectedProduct != null && _quantityController.text.isNotEmpty) {
+    if (_selectedProduct != null) {
+      if (_quantityController.text.isEmpty) {
+        _showErrorDialog('Debe ingresar una cantidad.');
+        return;
+      }
+
       int cantidad = int.parse(_quantityController.text);
       if (sucursalId != null) {
         setState(() {
-          _selectedProducts.add({
-            'id_producto': _selectedProduct,
-            'id_sucursal': sucursalId,
-            'cantidad': cantidad,
-          });
+          var existingProduct = _selectedProducts.firstWhere(
+              (prod) => prod['id_producto'] == _selectedProduct,
+              orElse: () => {});
+
+          if (existingProduct.isNotEmpty) {
+            existingProduct['cantidad'] += cantidad;
+          } else {
+            _selectedProducts.add({
+              'id_producto': _selectedProduct,
+              'id_sucursal': sucursalId,
+              'cantidad': cantidad,
+            });
+          }
+
           _selectedProduct = null;
           _quantityController.clear();
         });
       } else {
         _showErrorDialog('ID de sucursal no disponible.');
       }
+    } else {
+      _showErrorDialog('Debe seleccionar un producto.');
     }
   }
 
@@ -233,12 +247,15 @@ class _PedidosState extends State<Pedidos> {
                 });
               },
               items: _productos.map((producto) {
+                String displayText =
+                    '${producto['nombre']} (existencia: ${producto['cantidad_almacen']})';
                 return DropdownMenuItem<String>(
                   value: producto['id_producto'].toString(),
-                  child: Text(producto['nombre']),
+                  child: Text(displayText),
                 );
               }).toList(),
             ),
+            SizedBox(height: 30),
             TextField(
               controller: _quantityController,
               keyboardType: TextInputType.number,
@@ -246,6 +263,7 @@ class _PedidosState extends State<Pedidos> {
                 hintText: 'Ingrese la cantidad',
               ),
             ),
+            SizedBox(height: 30),
             ElevatedButton(
               onPressed: _addProduct,
               child: Text('Agregar Producto'),
@@ -282,51 +300,23 @@ class _PedidosState extends State<Pedidos> {
                 },
               ),
             ),
-
-            /*Expanded(
-              child: ListView.builder(
-                itemCount: _selectedProducts.length,
-                itemBuilder: (context, index) {
-                  var producto = _selectedProducts[index];
-                  return ListTile(
-                    title: Text(
-                        'Producto ID: ${producto['id_producto']} - Cantidad: ${producto['cantidad']}'),
-                    trailing: IconButton(
-                      icon: Icon(Icons.delete),
-                      onPressed: () {
-                        setState(() {
-                          _selectedProducts.removeAt(index);
-                        });
-                      },
-                    ),
-                  );
-                },
-              ),
-            ),*/
-          /*  ElevatedButton(
-              onPressed: _selectedProducts.isEmpty ? null : _submitPedido,
-              child: Text('Hacer Pedido'),
-            ),*/
-
-
-            
             ElevatedButton(
-                  onPressed:  _selectedProducts.isEmpty ? null : _submitPedido,
-                  child: Text(
-                    'Hacer Pedido',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    primary: Color(0xFF0094F8),
-                    padding: EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10.0),
-                    ),
-                  ),
+              onPressed: _submitPedido,
+              child: Text(
+                'Hacer Pedido',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
                 ),
+              ),
+              style: ElevatedButton.styleFrom(
+                primary: Color(0xFF0094F8),
+                padding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10.0),
+                ),
+              ),
+            ),
           ],
         ),
       ),

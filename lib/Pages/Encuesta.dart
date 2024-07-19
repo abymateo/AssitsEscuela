@@ -20,6 +20,9 @@ class _EncuestaPageState extends State<EncuestaPage> {
   String _respuesta3 = '';
   String _respuesta4 = '';
   String _respuesta5 = '';
+  String _respuesta6 = '';
+  String _respuesta7 = '';
+  String _respuesta8 = '';
 
   // Valor por defecto para las respuestas
   String _defaultRespuesta = '';
@@ -58,6 +61,9 @@ class _EncuestaPageState extends State<EncuestaPage> {
     final String valorRespuesta3 = getValue(_respuesta3);
     final String valorRespuesta4 = getValue(_respuesta4);
     final String valorRespuesta5 = getValue(_respuesta5);
+    final String valorRespuesta6 = getValue(_respuesta6);
+    final String valorRespuesta7 = getValue(_respuesta7);
+    final String valorRespuesta8 = getValue(_respuesta8);
 
     final String comentarios = _comentariosController.text;
 
@@ -79,6 +85,12 @@ class _EncuestaPageState extends State<EncuestaPage> {
           'valor_respuesta4': valorRespuesta4,
           'respuesta5': _respuesta5,
           'valor_respuesta5': valorRespuesta5,
+          'respuesta6': _respuesta6,
+          'valor_respuesta6': valorRespuesta6,
+          'respuesta7': _respuesta7,
+          'valor_respuesta7': valorRespuesta7,
+          'respuesta8': _respuesta8,
+          'valor_respuesta8': valorRespuesta8,
           'total': _total.toString(),
           'comentarios': comentarios,
         },
@@ -103,6 +115,12 @@ class _EncuestaPageState extends State<EncuestaPage> {
         return '2';
       case 'tal vez':
         return '3';
+      case 'bajo':
+        return '1';
+      case 'moderado':
+        return '2';
+      case 'alto':
+        return '3';
       default:
         return '0';
     }
@@ -113,7 +131,10 @@ class _EncuestaPageState extends State<EncuestaPage> {
         int.parse(getValue(_respuesta2)) +
         int.parse(getValue(_respuesta3)) +
         int.parse(getValue(_respuesta4)) +
-        int.parse(getValue(_respuesta5));
+        int.parse(getValue(_respuesta5)) +
+        int.parse(getValue(_respuesta6)) +
+        int.parse(getValue(_respuesta7)) +
+        int.parse(getValue(_respuesta8));
   }
 
   void _showDialog(String title, String message, [bool success = false]) {
@@ -210,6 +231,37 @@ class _EncuestaPageState extends State<EncuestaPage> {
                   },
                   _respuesta5,
                 ),
+                _buildPreguntaField(
+                  '¿Cuál es tu nivel de estrés actualmente?',
+                  (value) {
+                    setState(() {
+                      _respuesta6 = value ?? _defaultRespuesta;
+                      _calculateTotal();
+                    });
+                  },
+                  _respuesta6,
+                  opciones: ['bajo', 'moderado', 'alto'],
+                ),
+                _buildPreguntaField(
+                  '¿Te sientes presionado en tu jornada laboral?',
+                  (value) {
+                    setState(() {
+                      _respuesta7 = value ?? _defaultRespuesta;
+                      _calculateTotal();
+                    });
+                  },
+                  _respuesta7,
+                ),
+                _buildPreguntaField(
+                  '¿Alguna vez has pensado en renunciar?',
+                  (value) {
+                    setState(() {
+                      _respuesta8 = value ?? _defaultRespuesta;
+                      _calculateTotal();
+                    });
+                  },
+                  _respuesta8,
+                ),
                 const SizedBox(height: 20),
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 20.0),
@@ -265,14 +317,18 @@ class _EncuestaPageState extends State<EncuestaPage> {
         _respuesta2.isNotEmpty &&
         _respuesta3.isNotEmpty &&
         _respuesta4.isNotEmpty &&
-        _respuesta5.isNotEmpty;
+        _respuesta5.isNotEmpty &&
+        _respuesta6.isNotEmpty &&
+        _respuesta7.isNotEmpty &&
+        _respuesta8.isNotEmpty;
   }
 
   Widget _buildPreguntaField(
     String pregunta,
     void Function(String?)? onChanged,
-    String groupValue,
-  ) {
+    String groupValue, {
+    List<String> opciones = const ['sí', 'no', 'tal vez'],
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Column(
@@ -281,29 +337,19 @@ class _EncuestaPageState extends State<EncuestaPage> {
           Text(pregunta, style: const TextStyle(fontWeight: FontWeight.bold)),
           Row(
             mainAxisAlignment: MainAxisAlignment.start,
-            children: <Widget>[
-              Radio<String>(
-                value: 'Sí',
-                groupValue: groupValue,
-                onChanged:
-                    onChanged != null ? (value) => onChanged(value) : null,
-              ),
-              const Text('Sí'),
-              Radio<String>(
-                value: 'No',
-                groupValue: groupValue,
-                onChanged:
-                    onChanged != null ? (value) => onChanged(value) : null,
-              ),
-              const Text('No'),
-              Radio<String>(
-                value: 'Tal vez',
-                groupValue: groupValue,
-                onChanged:
-                    onChanged != null ? (value) => onChanged(value) : null,
-              ),
-              const Text('Tal vez'),
-            ],
+            children: opciones.map((option) {
+              return Row(
+                children: [
+                  Radio<String>(
+                    value: option,
+                    groupValue: groupValue,
+                    onChanged:
+                        onChanged != null ? (value) => onChanged(value) : null,
+                  ),
+                  Text(option),
+                ],
+              );
+            }).toList(),
           ),
         ],
       ),

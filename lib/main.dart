@@ -11,6 +11,7 @@ import 'package:technoo/Pages/settings.dart'; // Importa el archivo settings.dar
 import 'package:technoo/Pages/Asistencia.dart';
 
 //import 'home.dart';
+
 //import 'user_info.dart';
 
 void main() {
